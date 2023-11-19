@@ -32,7 +32,6 @@ jobs:
     steps:
     - name: 设置工作
       uses: actions/checkout@main
-      fetch-depth: 0
       
     - name: 检查服务器性能
       run: |
