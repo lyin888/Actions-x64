@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
 
 env:
-  REPO_URL: git@github.com:lyin888/openwrt.git
+  REPO_URL: https://github.com/lyin888/openwrt
   REPO_BRANCH: main
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
@@ -33,11 +33,6 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Set ssh agent
-      uses: webfactory/ssh-agent@v0.5.4
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-        
     - name: Checkout
       uses: actions/checkout@main
       
