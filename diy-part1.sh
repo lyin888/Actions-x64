@@ -14,5 +14,7 @@
 #sed -i 's/^#\(.*helloworld\)/\1/' feeds.conf.default
 
 # Add a feed source
-#sed -i '$a src-git lienol https://github.com/Lienol/openwrt-package' feeds.conf.default
-#sed -i '$a src-git passwall https://github.com/xiaorouji/openwrt-passwall' feeds.conf.default
+echo 'src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main' >>feeds.conf.default
+echo 'src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main' >>feeds.conf.default
+echo 'src-git gecoosac https://github.com/lwb1978/openwrt-gecoosac;main' >>feeds.conf.default
+echo 'src-git aliyundrive_webdav https://github.com/messense/aliyundrive-webdav;main' >>feeds.conf.default
