@@ -30,11 +30,11 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu--latest
 
     steps:
     - name: Checkout
-      uses: actions/checkout@main
+      uses: actions/checkout@v4
       
     - name: 检查服务器性能
       run: |
@@ -56,13 +56,53 @@ jobs:
         # this might remove tools that are actually needed,
         # if set to "true" but frees about 6 GB
         tool-cache: true
+        
         # all of these default to true, but feel free to set to
         # "false" if necessary for your workflow
         android: true
         dotnet: true
         haskell: true
         large-packages: true
+        docker-images: true
         swap-storage: true
+        
+    - name: Before
+      run: |
+        set -xe
+        df -H
+
+    - name: Removing stuff
+      run: |
+        set -xe
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/share/swift
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/.ghcup
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        sudo rm -rf /opt/hostedtoolcache/
+        sudo rm -rf /usr/local/graalvm/
+        sudo rm -rf /usr/local/share/powershell
+        sudo rm -rf /usr/local/share/chromium
+        sudo rm -rf /usr/local/lib/node_modules
+        sudo docker image prune --all --force
+        
+        APT_PARAMS='sudo apt -y -qq -o=Dpkg::Use-Pty=0'
+        $APT_PARAMS remove -y '^dotnet-.*'
+        $APT_PARAMS remove -y '^llvm-.*'
+        $APT_PARAMS remove -y '^php.*'
+        $APT_PARAMS remove -y '^mongodb-.*'
+        $APT_PARAMS remove -y '^mysql-.*'
+        $APT_PARAMS remove -y azure-cli google-* google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri
+        $APT_PARAMS autoremove --purge -y
+        $APT_PARAMS autoclean
+        $APT_PARAMS clean
+
+    - name: After
+      run: |
+        set -xe
+        df -H
 
     - name: Initialization environment
       env:
