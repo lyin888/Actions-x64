@@ -18,3 +18,4 @@ echo 'src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2.git;main'
 echo 'src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main' >>feeds.conf.default
 echo 'src-git gecoosac https://github.com/lwb1978/openwrt-gecoosac;main' >>feeds.conf.default
 echo 'src-git aliyundrive_webdav https://github.com/messense/aliyundrive-webdav;main' >>feeds.conf.default
+echo 'src-git lyin_diy https://github.com/lyin888/lyin_diy;main' >>feeds.conf.default
