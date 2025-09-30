@@ -143,6 +143,25 @@ jobs:
 
     - name: 安装 feeds
       run: cd openwrt && ./scripts/feeds install -a
+      
+    - name: 应用补丁
+      run: |
+          echo "Start applying the patch"
+
+          rm -rf temp_resp
+          git clone -b master --single-branch https://github.com/openwrt/packages.git temp_resp
+          cd temp_resp
+          git checkout 2b99cd7d7637da0f152da378994f699aaf0dd44d
+          cd ..
+          echo "update golang version"
+          rm -rf feeds/packages/lang/golang
+          cp -r temp_resp/lang/golang feeds/packages/lang
+          echo "update rust version"
+          rm -rf feeds/packages/lang/rust
+          cp -r temp_resp/lang/rust feeds/packages/lang
+          rm -rf temp_resp
+
+          echo "Patch application completed"
 
     - name: 加载自定义配置
       run: |
