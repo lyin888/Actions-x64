@@ -49,13 +49,60 @@ jobs:
         echo -e "$(sudo lshw -short -C memory | grep GiB) \n"
         echo "--------------------------硬盘信息--------------------------"
         echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
-        
-    - name: 合并磁盘
-      uses: easimon/maximize-build-space@master
+      
+    - name: 释放磁盘空间
+      uses: jlumbroso/free-disk-space@main
       with:
-        swap-size-mb: 1024
-        temp-reserve-mb: 100
-        root-reserve-mb: 1024
+        # this might remove tools that are actually needed,
+        # if set to "true" but frees about 6 GB
+        tool-cache: true
+        
+        # all of these default to true, but feel free to set to
+        # "false" if necessary for your workflow
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: true
+        
+    - name: 清理前
+      run: |
+        set -xe
+        df -H
+
+    - name: 清理中
+      run: |
+        set -xe
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/share/swift
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/.ghcup
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        sudo rm -rf /opt/hostedtoolcache/
+        sudo rm -rf /usr/local/graalvm/
+        sudo rm -rf /usr/local/share/powershell
+        sudo rm -rf /usr/local/share/chromium
+        sudo rm -rf /usr/local/lib/node_modules
+        sudo docker image prune --all --force
+        
+        APT_PARAMS='sudo apt -y -qq -o=Dpkg::Use-Pty=0'
+        $APT_PARAMS remove -y '^dotnet-.*'
+        $APT_PARAMS remove -y '^llvm-.*'
+        $APT_PARAMS remove -y '^php.*'
+        $APT_PARAMS remove -y '^mongodb-.*'
+        $APT_PARAMS remove -y '^mysql-.*'
+        $APT_PARAMS remove -y azure-cli google-* google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri
+        $APT_PARAMS autoremove --purge -y
+        $APT_PARAMS autoclean
+        $APT_PARAMS clean
+
+    - name: 清理后
+      run: |
+        set -xe
+        df -H
         
     - name: 初始化环境
       env:
@@ -77,6 +124,12 @@ jobs:
         df -hT $PWD
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+        
+    - name: 添加缓存
+      uses: klever1988/cachewrtbuild@main
+      with:
+        ccache: 'true'
+        prefix: ${{ github.workspace }}/openwrt
 
     - name: 加载自定义 feeds
       run: |
