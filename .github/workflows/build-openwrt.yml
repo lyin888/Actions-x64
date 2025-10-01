@@ -50,6 +50,13 @@ jobs:
         echo "--------------------------硬盘信息--------------------------"
         echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
         
+    - name: 合并磁盘
+      uses: easimon/maximize-build-space@master
+      with:
+        swap-size-mb: 1024
+        temp-reserve-mb: 100
+        root-reserve-mb: 1024
+        
     - name: 初始化环境
       env:
         DEBIAN_FRONTEND: noninteractive
@@ -63,13 +70,6 @@ jobs:
         sudo timedatectl set-timezone "$TZ"
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
-        
-    - name: 合并磁盘
-      uses: easimon/maximize-build-space@master
-      with:
-        swap-size-mb: 1024
-        temp-reserve-mb: 100
-        root-reserve-mb: 1024
 
     - name: 克隆源代码
       working-directory: /workdir
@@ -77,6 +77,14 @@ jobs:
         df -hT $PWD
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+        
+    - name: 缓存工具链
+      if: env.CACHE_TOOLCHAIN == 'true'
+      uses: HiGarfield/cachewrtbuild@main
+      with:
+        ccache: false
+        mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
+        prefix: ${{ env.OPENWRT_PATH }}
 
     - name: 加载自定义 feeds
       run: |
