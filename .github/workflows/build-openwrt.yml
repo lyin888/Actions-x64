@@ -143,6 +143,13 @@ jobs:
     - name: 安装 feeds
       run: cd openwrt && ./scripts/feeds install -a
 
+    - name: 应用补丁
+      run: |
+        cd openwrt
+        rm -rf feeds/packages/lang/golang
+        git clone https://github.com/lyin888/golang feeds/packages/lang/golang
+        ./scripts/feeds install -a
+
     - name: 加载自定义配置
       run: |
         [ -e files ] && mv files openwrt/files
