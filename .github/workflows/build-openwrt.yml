@@ -31,10 +31,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    steps:
-    - name: 查看
-      uses: actions/checkout@v5
       
     - name: 检查服务器性能
       run: |
@@ -50,59 +46,56 @@ jobs:
         echo "--------------------------硬盘信息--------------------------"
         echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
       
-    - name: 释放磁盘空间
-      uses: hugoalh/disk-space-optimizer-ghaction@v0.8.1
+    steps:
+    - name: Before freeing up disk space
+      run: |
+        echo "Before freeing up disk space"
+        echo "=============================================================================="
+        df -hT
+        echo "=============================================================================="
+
+    - name: "Optimize Disk Space"
+      uses: "hugoalh/disk-space-optimizer-ghaction@v0.8.1"
       with:
-        operate_sudo: True
-        general_include: .+
-        docker_include: .+
-        docker_prune: True
-        docker_clean: True
-        apt_prune: True
-        apt_clean: True
-        homebrew_prune: True
-        homebrew_clean: True
-        npm_prune: True
-        npm_clean: True
-        os_swap: True
+        operate_sudo: "True"
+        general_include: ".+"
+        general_exclude: |-
+          ^GCC$
+          ^G\+\+$
+          Clang
+          LLVM
+        docker_include: ".+"
+        docker_prune: "True"
+        docker_clean: "True"
+        apt_prune: "True"
+        apt_clean: "True"
+        homebrew_prune: "True"
+        homebrew_clean: "True"
+        npm_prune: "True"
+        npm_clean: "True"
+        os_swap: "True"
 
-    - name: 清理前
-      run: |
-        set -xe
-        df -H
+    - name: Freeing up disk space
+      uses: easimon/maximize-build-space@master
+      with: 
+        root-reserve-mb: 3072
+        swap-size-mb: 1
+        remove-dotnet: 'true'
+        remove-android: 'true'
+        remove-haskell: 'true'
+        remove-codeql: 'true'
+        remove-docker-images: 'true'
 
-    - name: 清理中
+    - name: Free up disk space complete
       run: |
-        set -xe
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/share/swift
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /usr/local/.ghcup
-        sudo rm -rf "/usr/local/share/boost"
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-        sudo rm -rf /opt/hostedtoolcache/
-        sudo rm -rf /usr/local/graalvm/
-        sudo rm -rf /usr/local/share/powershell
-        sudo rm -rf /usr/local/share/chromium
-        sudo rm -rf /usr/local/lib/node_modules
-        sudo docker image prune --all --force
-        
-        APT_PARAMS='sudo apt -y -qq -o=Dpkg::Use-Pty=0'
-        $APT_PARAMS remove -y '^dotnet-.*'
-        $APT_PARAMS remove -y '^llvm-.*'
-        $APT_PARAMS remove -y '^php.*'
-        $APT_PARAMS remove -y '^mongodb-.*'
-        $APT_PARAMS remove -y '^mysql-.*'
-        $APT_PARAMS remove -y azure-cli google-* google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri
-        $APT_PARAMS autoremove --purge -y
-        $APT_PARAMS autoclean
-        $APT_PARAMS clean
+        echo "Free up disk space complete"
+        echo "=============================================================================="
+        df -hT
+        echo "==============================================================================
 
-    - name: 清理后
-      run: |
-        set -xe
-        df -H
+    steps:
+    - name: 查看
+      uses: actions/checkout@v5
         
     - name: 初始化环境
       env:
