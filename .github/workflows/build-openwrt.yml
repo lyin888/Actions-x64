@@ -90,7 +90,6 @@ jobs:
         sudo docker image prune --all --force
         
         APT_PARAMS='sudo apt -y -qq -o=Dpkg::Use-Pty=0'
-        $APT_PARAMS remove -y '^dotnet-.*'
         $APT_PARAMS remove -y '^llvm-.*'
         $APT_PARAMS remove -y '^php.*'
         $APT_PARAMS remove -y '^mongodb-.*'
