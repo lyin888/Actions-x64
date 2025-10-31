@@ -56,7 +56,7 @@ jobs:
         operate_sudo: True
         general_include: .+
         docker_include: .+
-         docker_prune: True
+        docker_prune: True
         docker_clean: True
         apt_prune: True
         apt_clean: True
