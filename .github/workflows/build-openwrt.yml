@@ -65,7 +65,6 @@ jobs:
         large-packages: true
         swap-storage: true
         docker-images: true
-        tools-cache: true
 
     - name: 清理前
       run: |
