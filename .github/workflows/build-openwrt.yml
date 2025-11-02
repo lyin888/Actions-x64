@@ -108,10 +108,10 @@ jobs:
         sudo mkdir -p /mnt/workdir
         sudo chown $USER:$GROUPS /mnt/workdir
         
-    - name: 再次查看磁盘空间
+    - name: 硬盘信息
       run: |
-        set -xe
-        df -H
+        echo "--------------------------硬盘信息--------------------------"
+        echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
 
     - name: 克隆源代码
       working-directory: /mnt/workdir
