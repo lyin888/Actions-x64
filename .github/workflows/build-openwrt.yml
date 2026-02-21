@@ -138,23 +138,8 @@ jobs:
     - name: 更新 feeds
       run: cd openwrt && ./scripts/feeds update -a
       
-    - name: 删除插件
-      run: cd openwrt && rm -rf feeds/luci/applications/luci-app-appfilter
-      
-    - name: 删除插件缓存
-      run: cd openwrt && rm -rf feeds/luci.tmp/info/.packageinfo-applications_luci-app-appfilter
-      
-    - name: 删除插件缓存
-      run: cd openwrt && sed -i '3807,3846d' feeds/luci.tmp/.packageinfo
-      
-    - name: 删除插件
-      run: cd openwrt && rm -rf feeds/packages/net/open-app-filter
-      
-    - name: 删除插件缓存
-      run: cd openwrt && rm -rf feeds/packages.tmp/info/.packageinfo-net_open-app-filter
-      
-    - name: 删除插件缓存
-      run: cd openwrt && sed -i '79333,79367d' feeds/packages.tmp/.packageinfo
+    - name: 删除插件与缓存
+      run: cd openwrt && rm -rf feeds/luci/applications/luci-app-appfilter && rm -rf feeds/luci.tmp/info/.packageinfo-applications_luci-app-appfilter && sed -i '3807,3846d' feeds/luci.tmp/.packageinfo && rm -rf feeds/packages/net/open-app-filter && rm -rf feeds/packages.tmp/info/.packageinfo-net_open-app-filter && sed -i '79333,79367d' feeds/packages.tmp/.packageinfo
 
     - name: 安装 feeds
       run: cd openwrt && ./scripts/feeds install -a
