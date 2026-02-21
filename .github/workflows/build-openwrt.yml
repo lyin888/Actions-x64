@@ -6,7 +6,7 @@ on:
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt
-  REPO_BRANCH: v24.10.4
+  REPO_BRANCH: v24.10.5
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   DIY_P1_SH: diy-part1.sh
@@ -108,10 +108,10 @@ jobs:
         sudo mkdir -p /mnt/workdir
         sudo chown $USER:$GROUPS /mnt/workdir
         
-    - name: 再次查看磁盘空间
+    - name: 硬盘信息
       run: |
-        set -xe
-        df -H
+        echo "--------------------------硬盘信息--------------------------"
+        echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
 
     - name: 克隆源代码
       working-directory: /mnt/workdir
@@ -137,6 +137,24 @@ jobs:
 
     - name: 更新 feeds
       run: cd openwrt && ./scripts/feeds update -a
+      
+    - name: 删除插件
+      run: cd openwrt && rm -rf feeds/luci/applications/luci-app-appfilter
+      
+    - name: 删除插件缓存
+      run: cd openwrt && rm -rf feeds/luci.tmp/info/.packageinfo-applications_luci-app-appfilter
+      
+    - name: 删除插件缓存
+      run: cd openwrt && sed -i '3807,3846d' feeds/luci.tmp/.packageinfo
+      
+    - name: 删除插件
+      run: cd openwrt && rm -rf feeds/packages/net/open-app-filter
+      
+    - name: 删除插件缓存
+      run: cd openwrt && rm -rf feeds/packages.tmp/info/.packageinfo-net_open-app-filter
+      
+    - name: 删除插件缓存
+      run: cd openwrt && sed -i '79333,79367d' feeds/packages.tmp/.packageinfo
 
     - name: 安装 feeds
       run: cd openwrt && ./scripts/feeds install -a
