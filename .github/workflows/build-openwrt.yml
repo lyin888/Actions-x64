@@ -1,12 +1,29 @@
+#
+# https://github.com/P3TERX/Actions-OpenWrt
+#
+# File: .github/workflows/openwrt-bulder.yml
+# Description: Build OpenWrt using GitHub Actions
+# https://github.com/lwb1978/OpenWrt-Actions
+#
+# Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
+#
+# This is free software, licensed under the MIT License.
+# See /LICENSE for more information.
+#
 name: X64软路由-UEFI
 
 on:
   repository_dispatch:
   workflow_dispatch:
+    inputs:
+      ssh:
+        description: 'SSH connection to Actions'
+        required: false
+        default: false
 
 env:
-  REPO_URL: https://github.com/immortalwrt/immortalwrt
-  REPO_BRANCH: v24.10.4
+  REPO_URL: https://github.com/immortalwrt/immortalwrt.git
+  REPO_BRANCH: v24.10.5
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   DIY_P1_SH: diy-part1.sh
@@ -24,6 +41,11 @@ jobs:
     - name: 查看
       uses: actions/checkout@main
       
+    - name: 设置变量
+      run: |
+        sudo timedatectl set-timezone "$TZ"
+        echo "status=success" >> ${GITHUB_OUTPUT}
+      
     - name: 检查服务器性能
       run: |
         echo "警告⚠"
@@ -39,79 +61,21 @@ jobs:
         echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
         
     - name: 释放磁盘空间
-      uses: jlumbroso/free-disk-space@main
+      uses: sbwml/actions@free-disk
       with:
-        # this might remove tools that are actually needed,
-        # if set to "true" but frees about 6 GB
-        tool-cache: false
-        
-        # all of these default to true, but feel free to set to
-        # "false" if necessary for your workflow
-        android: true
-        dotnet: true
-        haskell: true
-        large-packages: true
-        docker-images: true
-        swap-storage: true
-
-    - name: 清理前
-      run: |
-        set -xe
-        df -H
-
-    - name: 清理中
-      run: |
-        set -xe
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/share/swift
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /usr/local/.ghcup
-        sudo rm -rf "/usr/local/share/boost"
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-        sudo rm -rf /opt/hostedtoolcache/
-        sudo rm -rf /usr/local/graalvm/
-        sudo rm -rf /usr/local/share/powershell
-        sudo rm -rf /usr/local/share/chromium
-        sudo rm -rf /usr/local/lib/node_modules
-        sudo docker image prune --all --force
-        
-        APT_PARAMS='sudo apt -y -qq -o=Dpkg::Use-Pty=0'
-        $APT_PARAMS remove -y '^dotnet-.*'
-        $APT_PARAMS remove -y '^llvm-.*'
-        $APT_PARAMS remove -y '^php.*'
-        $APT_PARAMS remove -y '^mongodb-.*'
-        $APT_PARAMS remove -y '^mysql-.*'
-        $APT_PARAMS remove -y azure-cli google-* google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri
-        $APT_PARAMS autoremove --purge -y
-        $APT_PARAMS autoclean
-        $APT_PARAMS clean
-
-    - name: 清理后
-      run: |
-        set -xe
-        df -H
+        build-mount-path: /mnt/workdir
         
     - name: 初始化环境
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        sudo -E rm -rf /usr/share/dotnet /etc/mysql /etc/php /usr/local/lib/android
-        sudo -E apt update
-        sudo -E apt -y purge azure-cli* docker* ghc* zulu* llvm* firefox google* dotnet* powershell* openjdk* mysql* php* mongodb* dotnet* snap*
-        sudo -E apt -y full-upgrade
-        sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)'
-        sudo -E systemctl daemon-reload
-        sudo -E apt -y autoremove --purge
-        sudo -E apt clean
-        sudo -E timedatectl set-timezone "Asia/Shanghai"
+        sudo -E apt-get -qq update
+        sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+        sudo -E apt-get install -y nodejs
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
         sudo mkdir -p /mnt/workdir
-        sudo chown $USER:$GROUPS /mnt/workdir
-        
-    - name: 再次查看磁盘空间
-      run: |
-        set -xe
-        df -H
+        sudo chown $USER:$(id -gn) /mnt/workdir
 
     - name: 克隆源代码
       working-directory: /mnt/workdir
@@ -120,12 +84,6 @@ jobs:
         df -hT $PWD
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         ln -sf /mnt/workdir/openwrt $GITHUB_WORKSPACE/openwrt
-        
-    - name: 缓存工具链
-      uses: klever1988/cachewrtbuild@main
-      with:
-        ccache: 'true'
-        prefix: ${{ github.workspace }}/openwrt
 
     - name: 加载自定义 feeds
       run: |
@@ -137,6 +95,16 @@ jobs:
 
     - name: 更新 feeds
       run: cd openwrt && ./scripts/feeds update -a
+      
+    - name: 删除插件与缓存
+      run: cd openwrt && rm -rf feeds/luci/applications/luci-app-appfilter && rm -rf feeds/luci.tmp/info/.packageinfo-applications_luci-app-appfilter && sed -i '3809,3848d' feeds/luci.tmp/.packageinfo && rm -rf feeds/packages/net/open-app-filter && rm -rf feeds/packages.tmp/info/.packageinfo-net_open-app-filter && sed -i '79335,79369d' feeds/packages.tmp/.packageinfo
+      
+    - name: SSH 连接到 Actions
+      uses: P3TERX/ssh2actions@v1.0.0
+      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
+      env:
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
     - name: 安装 feeds
       run: cd openwrt && ./scripts/feeds install -a
@@ -149,7 +117,7 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
-    - name: 下载 DL 
+    - name: 下载 package 
       id: package
       run: |
         cd openwrt
