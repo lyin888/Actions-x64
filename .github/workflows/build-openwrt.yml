@@ -144,6 +144,20 @@ jobs:
     - name: 检查空间使用情况
       if: (!cancelled())
       run: df -hT
+      
+    - name: 压缩 OpenWrt bin 目录
+      id: tarbin
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cd openwrt
+        TAR_NAME="OpenWrt_bin${DEVICE_NAME}${FILE_DATE}.tar.gz"
+        echo "TAR_NAME=${TAR_NAME}" >> $GITHUB_ENV
+        echo "TAR_PATH=${PWD}/${TAR_NAME}" >> $GITHUB_ENV
+        
+        echo "正在压缩 bin 目录（体积较大，请耐心等待）..."
+        tar -czf "${TAR_NAME}" -C bin .
+        
+        echo "压缩完成：${TAR_NAME}  ($(du -h "${TAR_NAME}" | cut -f1))"
 
     - name: 上传 bin 目录
       uses: actions/upload-artifact@main
@@ -186,3 +200,4 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: ${{ env.FIRMWARE }}/*
+               ${{ env.TAR_PATH }}
