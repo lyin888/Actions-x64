@@ -151,6 +151,22 @@ jobs:
       with:
         name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: openwrt/bin
+        
+    - name: 打包 OpenWrt_bin 为压缩包
+      if: env.UPLOAD_BIN_DIR == 'true' && !cancelled()
+      id: pack_bin
+      run: |
+        echo "开始打包 OpenWrt_bin 目录..."
+        cd openwrt
+        
+        BIN_NAME="OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}"
+        
+        # 使用 tar.gz 格式（推荐，体积小，Linux 友好）
+        tar -czf "../${BIN_NAME}.tar.gz" bin/
+        
+        echo "打包完成：${BIN_NAME}.tar.gz"
+        echo "BIN_PACKAGE=../${BIN_NAME}.tar.gz" >> $GITHUB_ENV
+        echo "status=success" >> $GITHUB_OUTPUT
 
     - name: 整理文件
       id: organize
