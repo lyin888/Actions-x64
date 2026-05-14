@@ -23,7 +23,7 @@ on:
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
-  REPO_BRANCH: v24.10.5
+  REPO_BRANCH: v24.10.6
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   DIY_P1_SH: diy-part1.sh
@@ -53,7 +53,8 @@ jobs:
         echo -e "\e[1;32m已知CPU型号（降序）：9V74，7763，8370C，8272CL，8171M，E5-2673 \n\e[0m"
         echo -e "--------------------------\e[1;32mCPU信息\e[0m--------------------------"
         echo -e "\e[1;32mCPU物理数量：\e[0m$(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
-        echo -e "\e[1;32mCPU核心信息：\e[0m$(cat /proc/cpuinfo | grep name | cut -f2 -d: | uniq -c) \n"
+        echo -e "\e[1;32mCPU型号:\e[0m $(cat /proc/cpuinfo | grep "model name" | head -1 | cut -d: -f2) \n"
+        echo -e "\e[1;32mCPU核心:\e[0m $(nproc) 线程 \n"
         echo -e "--------------------------\e[1;32m内存信息\e[0m--------------------------"
         echo -e "\e[1;32m已安装内存详细信息\e[0m"
         echo -e "$(sudo lshw -short -C memory | grep GiB) \n"
@@ -101,7 +102,18 @@ jobs:
       run: cd openwrt && ./scripts/feeds update -a
       
     - name: 删除插件与缓存
-      run: cd openwrt && rm -rf feeds/luci/applications/luci-app-appfilter && rm -rf feeds/luci.tmp/info/.packageinfo-applications_luci-app-appfilter && sed -i '3809,3848d' feeds/luci.tmp/.packageinfo && rm -rf feeds/packages/net/open-app-filter && rm -rf feeds/packages.tmp/info/.packageinfo-net_open-app-filter && sed -i '79335,79369d' feeds/packages.tmp/.packageinfo
+      run: |
+        cd openwrt
+        rm -rf feeds/luci/applications/luci-app-appfilter
+        rm -rf feeds/luci.tmp/info/.packageinfo-applications_luci-app-appfilter
+        sed -i '/^Source-Makefile:.*luci-app-appfilter/,/^@@/d' feeds/luci.tmp/.packageinfo
+        sed -i '/^Package: luci-i18n-appfilter-zh-cn/,/^@@/d' feeds/luci.tmp/.packageinfo
+        sed -i '/^$/N;/^\n$/D' feeds/luci.tmp/.packageinfo
+        rm -rf feeds/packages/net/open-app-filter
+        rm -rf feeds/packages.tmp/info/.packageinfo-net_open-app-filter
+        sed -i '/^Source-Makefile: feeds\/packages\/net\/open-app-filter\/Makefile/,/^@@/d' feeds/packages.tmp/.packageinfo
+        sed -i '/^Package: appfilter/,/^@@/d' feeds/packages.tmp/.packageinfo
+        sed -i '/^$/N;/^\n$/D' feeds/packages.tmp/.packageinfo
       
     - name: SSH 连接到 Actions
       uses: P3TERX/ssh2actions@v1.0.0
@@ -152,6 +164,12 @@ jobs:
         name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: openwrt/bin
 
+    - name: 压缩bin目录并移动
+      run: |
+        cd openwrt
+        tar -czf OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}.tar.gz bin
+        mv OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}.tar.gz bin/targets/*/*
+
     - name: 整理文件
       id: organize
       if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
@@ -186,3 +204,12 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: ${{ env.FIRMWARE }}/*
+
+    - name: 移除旧版本
+      uses: dev-drprasad/delete-older-releases@v0.3.4
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      with:
+        keep_latest: 10
+        delete_tags: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
