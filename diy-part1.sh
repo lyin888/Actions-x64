@@ -14,8 +14,8 @@
 #sed -i 's/^#\(.*helloworld\)/\1/' feeds.conf.default
 
 # Add a feed source
-echo 'src-git packages https://github.com/lyin888/packages-25.12.0.git' >>feeds.conf.default
-echo 'src-git luci https://github.com/lyin888/luci-25.12.0.git' >>feeds.conf.default
+echo 'src-git packages https://github.com/lyin888/packages-25.12.1.git' >>feeds.conf.default
+echo 'src-git luci https://github.com/lyin888/luci-25.12.1.git' >>feeds.conf.default
 echo 'src-git passwall2 https://github.com/Openwrt-Passwall/openwrt-passwall2.git' >>feeds.conf.default
 echo 'src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git' >>feeds.conf.default
 echo 'src-git gecoosac https://github.com/lyin888/openwrt-gecoosac.git' >>feeds.conf.default
