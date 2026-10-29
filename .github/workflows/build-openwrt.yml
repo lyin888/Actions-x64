@@ -81,6 +81,45 @@ jobs:
         sudo -E apt-get -qq clean
         sudo mkdir -p /mnt/workdir
         sudo chown $USER:$(id -gn) /mnt/workdir
+        
+    - name: 安装 Go 1.27.3
+      env:
+        GO_VERSION: '1.27.3'
+      run: |
+        set -e
+
+        GO_ARCH="$(dpkg --print-architecture)"
+        case "$GO_ARCH" in
+          amd64) GO_ARCH="amd64" ;;
+          arm64) GO_ARCH="arm64" ;;
+          *)
+            echo "不支持的 Runner 架构: $GO_ARCH"
+            exit 1
+            ;;
+        esac
+
+        GO_FILE="go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
+        GO_URL="https://go.dev/dl/${GO_FILE}"
+
+        if [ "$GO_ARCH" = "amd64" ]; then
+          GO_SHA256="65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40"
+        else
+          GO_SHA256="a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49"
+        fi
+
+        curl -fL --retry 3 "$GO_URL" -o "/tmp/${GO_FILE}"
+        echo "${GO_SHA256}  /tmp/${GO_FILE}" | sha256sum -c -
+
+        sudo rm -rf /usr/local/go
+        sudo tar -C /usr/local -xzf "/tmp/${GO_FILE}"
+
+        echo "/usr/local/go/bin" >> "$GITHUB_PATH"
+        echo "GOROOT=/usr/local/go" >> "$GITHUB_ENV"
+        echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"
+
+        export PATH="/usr/local/go/bin:$PATH"
+        go version
+        test "$(go env GOVERSION)" = "go${GO_VERSION}"
 
     - name: 克隆源代码
       working-directory: /mnt/workdir
