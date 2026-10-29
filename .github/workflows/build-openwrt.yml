@@ -115,10 +115,11 @@ jobs:
 
         echo "/usr/local/go/bin" >> "$GITHUB_PATH"
         echo "GOROOT=/usr/local/go" >> "$GITHUB_ENV"
-        echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"
+        echo "GOTOOLCHAIN=auto" >> "$GITHUB_ENV"
 
         export PATH="/usr/local/go/bin:$PATH"
         go version
+        go env GOTOOLCHAIN
         test "$(go env GOVERSION)" = "go${GO_VERSION}"
 
     - name: 克隆源代码
@@ -234,12 +235,3 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: ${{ env.FIRMWARE }}/*
-
-    - name: 移除旧版本
-      uses: dev-drprasad/delete-older-releases@v0.3.4
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      with:
-        keep_latest: 10
-        delete_tags: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
