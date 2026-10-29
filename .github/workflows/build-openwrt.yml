@@ -23,7 +23,7 @@ on:
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
-  REPO_BRANCH: v25.12.1
+  REPO_BRANCH: v25.12.2
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   DIY_P1_SH: diy-part1.sh
@@ -89,8 +89,6 @@ jobs:
         df -hT $PWD
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         ln -sf /mnt/workdir/openwrt $GITHUB_WORKSPACE/openwrt
-        sed -i '/src-git packages https:\/\/github.com\/immortalwrt\/packages.git\^e93a938c63124832d549c41da3157e2ec40fbe05/d' openwrt/feeds.conf.default
-        sed -i '/src-git luci https:\/\/github.com\/immortalwrt\/luci.git\^ed7692cb08a953e2e503287e0337c8b548cf4ba5/d' openwrt/feeds.conf.default
 
     - name: 加载自定义 feeds
       run: |
@@ -103,19 +101,19 @@ jobs:
     - name: 更新 feeds
       run: cd openwrt && ./scripts/feeds update -a
       
-    - name: 删除插件与缓存
+    - name: 删除不需要的 feeds 软件包
       run: |
         cd openwrt
-        rm -rf feeds/luci/applications/luci-app-appfilter
-        rm -rf feeds/luci.tmp/info/.packageinfo-applications_luci-app-appfilter
-        sed -i '/^Source-Makefile:.*luci-app-appfilter/,/^@@/d' feeds/luci.tmp/.packageinfo
-        sed -i '/^Package: luci-i18n-appfilter-zh-cn/,/^@@/d' feeds/luci.tmp/.packageinfo
+        rm -rf feeds/luci/applications/luci-app-{appfilter,rtp2httpd,tailscale-community}
+        rm -rf feeds/luci.tmp/info/{.packageinfo-applications_luci-app-appfilter,.packageinfo-applications_luci-app-rtp2httpd,.packageinfo-applications_luci-app-tailscale-community}
+        sed -i '/^Source-Makefile:.*luci-app-appfilter/,/^@@/d; /^Package: luci-i18n-appfilter-*/,/^@@/d; /^Source-Makefile:.*luci-app-rtp2httpd/,/^@@/d; /^Package: luci-i18n-rtp2httpd-*/,/^@@/d; /^Source-Makefile:.*luci-app-tailscale-community/,/^@@/d; /^Package: luci-i18n-tailscale-community-*/,/^@@/d' feeds/luci.tmp/.packageinfo
         sed -i '/^$/N;/^\n$/D' feeds/luci.tmp/.packageinfo
-        rm -rf feeds/packages/net/open-app-filter
-        rm -rf feeds/packages.tmp/info/.packageinfo-net_open-app-filter
-        sed -i '/^Source-Makefile: feeds\/packages\/net\/open-app-filter\/Makefile/,/^@@/d' feeds/packages.tmp/.packageinfo
-        sed -i '/^Package: appfilter/,/^@@/d' feeds/packages.tmp/.packageinfo
+        rm -rf feeds/packages/net/{chinadns-ng,dns2socks,geoview,hysteria,ipt2socks,microsocks,naiveproxy,open-app-filter,rtp2httpd,shadow-tls,shadowsocks-rust,shadowsocksr-libev,simple-obfs,sing-box,tcping,v2ray-geodata,v2ray-plugin,xray-core,xray-plugin}
+        rm -rf feeds/packages.tmp/info/{.packageinfo-net_chinadns-ng,.packageinfo-net_dns2socks,.packageinfo-net_geoview,.packageinfo-net_hysteria,.packageinfo-net_ipt2socks,.packageinfo-net_microsocks,.packageinfo-net_naiveproxy,.packageinfo-net_open-app-filter,.packageinfo-net_rtp2httpd,.packageinfo-net_shadow-tls,.packageinfo-net_shadowsocks-rust,.packageinfo-net_shadowsocksr-libev,.packageinfo-net_simple-obfs,.packageinfo-net_sing-box,.packageinfo-net_tcping,.packageinfo-net_v2ray-geodata,.packageinfo-net_v2ray-plugin,.packageinfo-net_xray-core,.packageinfo-net_xray-plugin}
+        sed -i '/^Source-Makefile: feeds\/packages\/net\/chinadns-ng\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/dns2socks\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/geoview\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/hysteria\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/ipt2socks\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/microsocks\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/naiveproxy\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/open-app-filter\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/rtp2httpd\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/shadow-tls\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/shadowsocks-rust\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/shadowsocksr-libev\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/simple-obfs\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/sing-box\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/tcping\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/v2ray-geodata\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/v2ray-plugin\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/xray-core\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/xray-plugin\/Makefile/,/^@@/d; /^Package: chinadns-ng/,/^@@/d; /^Package: dns2socks/,/^@@/d; /^Package: geoview/,/^@@/d; /^Package: hysteria/,/^@@/d; /^Package: ipt2socks/,/^@@/d; /^Package: microsocks/,/^@@/d; /^Package: naiveproxy/,/^@@/d; /^Package: appfilter/,/^@@/d; /^Package: rtp2httpd/,/^@@/d; /^Package: shadow-tls/,/^@@/d; /^Package: shadowsocks-rust/,/^@@/d; /^Package: shadowsocksr-libev/,/^@@/d; /^Package: simple-obfs/,/^@@/d; /^Package: sing-box/,/^@@/d; /^Package: tcping/,/^@@/d; /^Package: v2ray-geodata/,/^@@/d; /^Package: v2ray-plugin/,/^@@/d; /^Package: xray-core/,/^@@/d; /^Package: xray-plugin/,/^@@/d' feeds/packages.tmp/.packageinfo
         sed -i '/^$/N;/^\n$/D' feeds/packages.tmp/.packageinfo
+    - name: 安装 feeds
+      run: cd openwrt && ./scripts/feeds install -a
       
     - name: SSH 连接到 Actions
       uses: P3TERX/ssh2actions@v1.0.0
@@ -123,9 +121,6 @@ jobs:
       env:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-
-    - name: 安装 feeds
-      run: cd openwrt && ./scripts/feeds install -a
 
     - name: 加载自定义配置
       run: |
