@@ -103,49 +103,90 @@ jobs:
 
     - name: 更新 Go 工具链
       run: |
-        set -e
+        set -Eeuo pipefail
 
         cd openwrt
 
         echo "========== 获取 ImmortalWrt 官方 Go 工具链 =========="
 
         TMP_DIR=$(mktemp -d)
+        trap 'rm -rf "$TMP_DIR"' EXIT
 
-        git clone --depth 1 \
+        git clone \
+          --depth 1 \
+          --branch master \
+          --single-branch \
           https://github.com/immortalwrt/packages.git \
           "$TMP_DIR/packages"
 
-        echo "========== 检查 Go 源码 =========="
+        GO_DIR="$TMP_DIR/packages/lang/golang"
 
-        test -f "$TMP_DIR/packages/lang/golang/Makefile"
+        echo "========== 官方仓库版本 =========="
 
-        echo "========== 官方 packages 提交版本 =========="
+        git -C "$TMP_DIR/packages" rev-parse HEAD
 
-        git -C "$TMP_DIR/packages" log -1 --format='%H%n%cd%n%s' --date=iso
+        echo "========== 检查 Go 工具链 =========="
 
-        echo "========== 备份并替换 Go 工具链 =========="
+        test -f "$GO_DIR/golang-values.mk"
+        test -f "$GO_DIR/golang/Makefile"
+        test -f "$GO_DIR/golang-bootstrap/Makefile"
 
-        rm -rf feeds/packages/lang/golang
+        GO_DEFAULT_VERSION=$(awk -F ':=' \
+          '/^GO_DEFAULT_VERSION:=/ {print $2; exit}' \
+          "$GO_DIR/golang-values.mk")
+
+        echo "默认 Go 版本：$GO_DEFAULT_VERSION"
+
+        if [ -z "$GO_DEFAULT_VERSION" ]; then
+          echo "错误：无法读取默认 Go 版本"
+          exit 1
+        fi
+
+        if [ "$(printf '%s\n' 1.27 "$GO_DEFAULT_VERSION" | sort -V | head -n 1)" != "1.27" ]; then
+          echo "错误：Go 版本低于 1.27"
+          exit 1
+        fi
+
+        GO_VERSION_MAKEFILE="$GO_DIR/golang${GO_DEFAULT_VERSION}/Makefile"
+
+        if [ ! -f "$GO_VERSION_MAKEFILE" ]; then
+          echo "错误：找不到 Go ${GO_DEFAULT_VERSION} 正式工具链"
+          exit 1
+        fi
+
+        GO_MAJOR_MINOR=$(awk -F ':=' \
+          '/^GO_VERSION_MAJOR_MINOR:=/ {print $2; exit}' \
+          "$GO_VERSION_MAKEFILE")
+
+        GO_PATCH=$(awk -F ':=' \
+          '/^GO_VERSION_PATCH:=/ {print $2; exit}' \
+          "$GO_VERSION_MAKEFILE")
+
+        if [ "$GO_MAJOR_MINOR" != "$GO_DEFAULT_VERSION" ] || [ -z "$GO_PATCH" ]; then
+          echo "错误：Go 默认版本与正式工具链版本不一致"
+          exit 1
+        fi
+
+        echo "正式 Go 版本：${GO_MAJOR_MINOR}.${GO_PATCH}"
+
+        echo "========== 替换 ImmortalWrt Go 工具链 =========="
 
         mkdir -p feeds/packages/lang
 
-        cp -a "$TMP_DIR/packages/lang/golang" \
-          feeds/packages/lang/
+        cp -a "$GO_DIR" feeds/packages/lang/.golang.new
 
-        rm -rf "$TMP_DIR"
+        rm -rf feeds/packages/lang/golang
 
-        echo "========== 检查更新结果 =========="
+        mv feeds/packages/lang/.golang.new \
+          feeds/packages/lang/golang
 
-        find feeds/packages/lang/golang \
-          -maxdepth 2 -name Makefile -print
+        echo "========== 验证替换结果 =========="
 
-        echo "========== Go 版本定义 =========="
+        grep '^GO_DEFAULT_VERSION:=' \
+          feeds/packages/lang/golang/golang-values.mk
 
-        grep -R -nE \
-          'PKG_VERSION|GO_DEFAULT_VERSION|GO_VERSION|BOOTSTRAP' \
-          feeds/packages/lang/golang \
-          --include='Makefile' \
-          --include='*.mk' || true
+        grep -E '^GO_VERSION_MAJOR_MINOR:=|^GO_VERSION_PATCH:=' \
+          "feeds/packages/lang/golang/golang${GO_DEFAULT_VERSION}/Makefile"
 
         echo "========== Go 工具链更新完成 =========="
       
