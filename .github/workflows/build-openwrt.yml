@@ -121,11 +121,13 @@ jobs:
 
         GO_DIR="$TMP_DIR/packages/lang/golang"
 
-        echo "========== 官方仓库版本 =========="
+        echo "========== 官方仓库提交记录 =========="
 
-        git -C "$TMP_DIR/packages" rev-parse HEAD
+        git -C "$TMP_DIR/packages" log -1 \
+          --format='Commit: %H%nDate: %cd%nSubject: %s' \
+          --date=iso
 
-        echo "========== 检查 Go 工具链 =========="
+        echo "========== 检查 Go 工具链文件 =========="
 
         test -f "$GO_DIR/golang-values.mk"
         test -f "$GO_DIR/golang/Makefile"
@@ -138,7 +140,7 @@ jobs:
         echo "默认 Go 版本：$GO_DEFAULT_VERSION"
 
         if [ -z "$GO_DEFAULT_VERSION" ]; then
-          echo "错误：无法读取默认 Go 版本"
+          echo "错误：无法读取 Go 默认版本"
           exit 1
         fi
 
@@ -149,10 +151,7 @@ jobs:
 
         GO_VERSION_MAKEFILE="$GO_DIR/golang${GO_DEFAULT_VERSION}/Makefile"
 
-        if [ ! -f "$GO_VERSION_MAKEFILE" ]; then
-          echo "错误：找不到 Go ${GO_DEFAULT_VERSION} 正式工具链"
-          exit 1
-        fi
+        test -f "$GO_VERSION_MAKEFILE"
 
         GO_MAJOR_MINOR=$(awk -F ':=' \
           '/^GO_VERSION_MAJOR_MINOR:=/ {print $2; exit}' \
@@ -163,24 +162,30 @@ jobs:
           "$GO_VERSION_MAKEFILE")
 
         if [ "$GO_MAJOR_MINOR" != "$GO_DEFAULT_VERSION" ] || [ -z "$GO_PATCH" ]; then
-          echo "错误：Go 默认版本与正式工具链版本不一致"
+          echo "错误：正式 Go 工具链版本不匹配"
           exit 1
         fi
 
         echo "正式 Go 版本：${GO_MAJOR_MINOR}.${GO_PATCH}"
 
-        echo "========== 替换 ImmortalWrt Go 工具链 =========="
+        echo "========== 准备替换目录 =========="
 
         mkdir -p feeds/packages/lang
 
-        cp -a "$GO_DIR" feeds/packages/lang/.golang.new
+        STAGE_DIR=$(mktemp -d feeds/packages/lang/.golang-stage.XXXXXX)
+
+        cp -a "$GO_DIR/." "$STAGE_DIR/"
+
+        test -f "$STAGE_DIR/golang-values.mk"
+        test -f "$STAGE_DIR/golang${GO_DEFAULT_VERSION}/Makefile"
+
+        echo "========== 替换 Go 工具链 =========="
 
         rm -rf feeds/packages/lang/golang
 
-        mv feeds/packages/lang/.golang.new \
-          feeds/packages/lang/golang
+        mv "$STAGE_DIR" feeds/packages/lang/golang
 
-        echo "========== 验证替换结果 =========="
+        echo "========== 验证更新结果 =========="
 
         grep '^GO_DEFAULT_VERSION:=' \
           feeds/packages/lang/golang/golang-values.mk
@@ -203,6 +208,20 @@ jobs:
         sed -i '/^$/N;/^\n$/D' feeds/packages.tmp/.packageinfo
     - name: 安装 feeds
       run: cd openwrt && ./scripts/feeds install -a
+      
+    - name: 重建 packages feed 索引
+      run: |
+        set -Eeuo pipefail
+
+        cd openwrt
+
+        echo "========== 重新扫描 packages feed =========="
+
+        ./scripts/feeds update -i packages
+
+        test -s feeds/packages.index
+
+        echo "========== packages feed 索引生成成功 =========="
       
     - name: SSH 连接到 Actions
       uses: P3TERX/ssh2actions@v1.0.0
