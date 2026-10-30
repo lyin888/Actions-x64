@@ -50,7 +50,7 @@ jobs:
       run: |
         echo -e "\e[1;32m警告⚠\e[0m"
         echo -e "\e[1;32m分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！\e[0m"
-        echo -e "\e[1;32m已知CPU型号（降序）：9V74，7763，8370C，8272CL，8171M，E5-2673 \n\e[0m"
+        echo -e "\e[1;32m已知CPU型号（降序）：9V74，8573C，7763，8370C，8272CL，8171M，E5-2673 \n\e[0m"
         echo -e "--------------------------\e[1;32mCPU信息\e[0m--------------------------"
         echo -e "\e[1;32mCPU物理数量：\e[0m$(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
         echo -e "\e[1;32mCPU型号:\e[0m $(cat /proc/cpuinfo | grep "model name" | head -1 | cut -d: -f2) \n"
