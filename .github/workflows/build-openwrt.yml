@@ -206,8 +206,6 @@ jobs:
         rm -rf feeds/packages.tmp/info/{.packageinfo-net_chinadns-ng,.packageinfo-net_dns2socks,.packageinfo-net_geoview,.packageinfo-net_hysteria,.packageinfo-net_ipt2socks,.packageinfo-net_microsocks,.packageinfo-net_naiveproxy,.packageinfo-net_open-app-filter,.packageinfo-net_rtp2httpd,.packageinfo-net_shadow-tls,.packageinfo-net_shadowsocks-rust,.packageinfo-net_shadowsocksr-libev,.packageinfo-net_simple-obfs,.packageinfo-net_sing-box,.packageinfo-net_tcping,.packageinfo-net_v2ray-geodata,.packageinfo-net_v2ray-plugin,.packageinfo-net_xray-core,.packageinfo-net_xray-plugin}
         sed -i '/^Source-Makefile: feeds\/packages\/net\/chinadns-ng\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/dns2socks\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/geoview\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/hysteria\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/ipt2socks\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/microsocks\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/naiveproxy\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/open-app-filter\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/rtp2httpd\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/shadow-tls\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/shadowsocks-rust\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/shadowsocksr-libev\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/simple-obfs\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/sing-box\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/tcping\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/v2ray-geodata\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/v2ray-plugin\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/xray-core\/Makefile/,/^@@/d; /^Source-Makefile: feeds\/packages\/net\/xray-plugin\/Makefile/,/^@@/d; /^Package: chinadns-ng/,/^@@/d; /^Package: dns2socks/,/^@@/d; /^Package: geoview/,/^@@/d; /^Package: hysteria/,/^@@/d; /^Package: ipt2socks/,/^@@/d; /^Package: microsocks/,/^@@/d; /^Package: naiveproxy/,/^@@/d; /^Package: appfilter/,/^@@/d; /^Package: rtp2httpd/,/^@@/d; /^Package: shadow-tls/,/^@@/d; /^Package: shadowsocks-rust/,/^@@/d; /^Package: shadowsocksr-libev/,/^@@/d; /^Package: simple-obfs/,/^@@/d; /^Package: sing-box/,/^@@/d; /^Package: tcping/,/^@@/d; /^Package: v2ray-geodata/,/^@@/d; /^Package: v2ray-plugin/,/^@@/d; /^Package: xray-core/,/^@@/d; /^Package: xray-plugin/,/^@@/d' feeds/packages.tmp/.packageinfo
         sed -i '/^$/N;/^\n$/D' feeds/packages.tmp/.packageinfo
-    - name: 安装 feeds
-      run: cd openwrt && ./scripts/feeds install -a
       
     - name: 重建 packages feed 索引
       run: |
@@ -222,6 +220,9 @@ jobs:
         test -s feeds/packages.index
 
         echo "========== packages feed 索引生成成功 =========="
+        
+    - name: 安装 feeds
+      run: cd openwrt && ./scripts/feeds install -a
       
     - name: SSH 连接到 Actions
       uses: P3TERX/ssh2actions@v1.0.0
