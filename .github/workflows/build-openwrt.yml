@@ -1,3 +1,4 @@
+
 #
 # https://github.com/P3TERX/Actions-OpenWrt
 #
@@ -242,7 +243,6 @@ jobs:
           echo "========== 检查 Tailscale =========="
 
           test -f "$TS_SRC/Makefile"
-          test -f "$TS_SRC/go.mod"
 
           TS_VERSION="$(
             sed -n 's/^PKG_VERSION:=//p' \
@@ -254,14 +254,22 @@ jobs:
               "$TS_SRC/Makefile" | head -n 1
           )"
 
+          # go.mod 属于 Tailscale 上游源码，不在 ImmortalWrt 的软件包 Makefile 目录中。
+          # 按 PKG_VERSION 获取与打包版本一致的上游 go.mod。
+          curl -fsSL \
+            "https://raw.githubusercontent.com/tailscale/tailscale/v${TS_VERSION}/go.mod" \
+            -o "$TMP_DIR/tailscale.go.mod"
+
+          test -s "$TMP_DIR/tailscale.go.mod"
+
           TS_GO_REQUIRED="$(
             awk '$1 == "go" {print $2; exit}' \
-              "$TS_SRC/go.mod"
+              "$TMP_DIR/tailscale.go.mod"
           )"
 
           TS_JSON_VERSION="$(
             awk '$1 == "github.com/go-json-experiment/json" {print $2; exit}' \
-              "$TS_SRC/go.mod"
+              "$TMP_DIR/tailscale.go.mod"
           )"
 
           echo "Tailscale 版本：$TS_VERSION"
@@ -318,7 +326,6 @@ jobs:
           test -f "$STAGE_GO/golang-values.mk"
           test -f "$STAGE_GO/golang1.27/Makefile"
           test -f "$STAGE_TS/Makefile"
-          test -f "$STAGE_TS/go.mod"
 
           echo "========== 替换 Go 工具链 =========="
 
@@ -346,11 +353,10 @@ jobs:
           grep '^PKG_HASH:=' \
             feeds/packages/net/tailscale/Makefile
 
-          grep '^go ' \
-            feeds/packages/net/tailscale/go.mod
+          grep '^go ' "$TMP_DIR/tailscale.go.mod"
 
           grep 'github.com/go-json-experiment/json' \
-            feeds/packages/net/tailscale/go.mod
+            "$TMP_DIR/tailscale.go.mod"
 
           echo "========== Go 和 Tailscale 更新完成 =========="
 
@@ -556,4 +562,3 @@ jobs:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           body_path: release.txt
           files: ${{ env.FIRMWARE }}/*
-
