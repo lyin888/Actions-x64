@@ -1,4 +1,3 @@
-
 #
 # https://github.com/P3TERX/Actions-OpenWrt
 #
@@ -161,8 +160,8 @@ jobs:
           cd openwrt
           ./scripts/feeds update -a
 
-      # 9. 更新 Go 工具链和 Tailscale
-      - name: 更新 Go 工具链和 Tailscale
+      # 9. 更新 Go 工具链
+      - name: 更新 Go 工具链
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -173,17 +172,12 @@ jobs:
 
           TMP_DIR="$(mktemp -d)"
           STAGE_GO=""
-          STAGE_TS=""
 
           cleanup() {
             rm -rf -- "$TMP_DIR"
 
             if [ -n "$STAGE_GO" ]; then
               rm -rf -- "$STAGE_GO"
-            fi
-
-            if [ -n "$STAGE_TS" ]; then
-              rm -rf -- "$STAGE_TS"
             fi
           }
 
@@ -198,7 +192,6 @@ jobs:
 
           SRC="$TMP_DIR/packages"
           GO_SRC="$SRC/lang/golang"
-          TS_SRC="$SRC/net/tailscale"
 
           echo "========== 官方仓库提交记录 =========="
 
@@ -240,104 +233,24 @@ jobs:
             exit 1
           fi
 
-          echo "========== 检查 Tailscale =========="
-
-          test -f "$TS_SRC/Makefile"
-
-          TS_VERSION="$(
-            sed -n 's/^PKG_VERSION:=//p' \
-              "$TS_SRC/Makefile" | head -n 1
-          )"
-
-          TS_HASH="$(
-            sed -n 's/^PKG_HASH:=//p' \
-              "$TS_SRC/Makefile" | head -n 1
-          )"
-
-          # go.mod 属于 Tailscale 上游源码，不在 ImmortalWrt 的软件包 Makefile 目录中。
-          # 按 PKG_VERSION 获取与打包版本一致的上游 go.mod。
-          curl -fsSL \
-            "https://raw.githubusercontent.com/tailscale/tailscale/v${TS_VERSION}/go.mod" \
-            -o "$TMP_DIR/tailscale.go.mod"
-
-          test -s "$TMP_DIR/tailscale.go.mod"
-
-          TS_GO_REQUIRED="$(
-            awk '$1 == "go" {print $2; exit}' \
-              "$TMP_DIR/tailscale.go.mod"
-          )"
-
-          TS_JSON_VERSION="$(
-            awk '$1 == "github.com/go-json-experiment/json" {print $2; exit}' \
-              "$TMP_DIR/tailscale.go.mod"
-          )"
-
-          echo "Tailscale 版本：$TS_VERSION"
-          echo "Tailscale 要求 Go：$TS_GO_REQUIRED"
-          echo "Tailscale JSON 依赖：$TS_JSON_VERSION"
-
-          if [ "$TS_VERSION" != "1.104.1" ]; then
-            echo "错误：Tailscale 版本不是预期的 1.104.1"
-            exit 1
-          fi
-
-          if [[ ! "$TS_HASH" =~ ^[0-9a-f]{64}$ ]]; then
-            echo "错误：Tailscale PKG_HASH 格式无效"
-            exit 1
-          fi
-
-          if [ -z "$TS_GO_REQUIRED" ] || [ -z "$TS_JSON_VERSION" ]; then
-            echo "错误：无法读取 Tailscale go.mod 版本信息"
-            exit 1
-          fi
-
-          # 确认 Go 1.27.3 满足 Tailscale go.mod 的最低版本要求
-          GO_MIN_VERSION="$(
-            printf '%s\n' "$GO_ACTUAL_VERSION" "$TS_GO_REQUIRED" \
-              | sort -V | head -n 1
-          )"
-
-          if [ "$GO_MIN_VERSION" != "$TS_GO_REQUIRED" ]; then
-            echo "错误：Go 工具链低于 Tailscale 要求的版本"
-            exit 1
-          fi
-
-          # 防止重新引入本次报错中的旧 JSON 依赖
-          if [ "$TS_JSON_VERSION" = "v0.0.0-20250813024750-ebf49471dced" ]; then
-            echo "错误：Tailscale 仍使用导致编译失败的旧 JSON 依赖"
-            exit 1
-          fi
-
           echo "========== 准备替换目录 =========="
 
-          mkdir -p feeds/packages/lang feeds/packages/net
+          mkdir -p feeds/packages/lang
 
           STAGE_GO="$(
             mktemp -d feeds/packages/lang/.golang-stage.XXXXXX
           )"
 
-          STAGE_TS="$(
-            mktemp -d feeds/packages/net/.tailscale-stage.XXXXXX
-          )"
-
           cp -a "$GO_SRC/." "$STAGE_GO/"
-          cp -a "$TS_SRC/." "$STAGE_TS/"
 
           test -f "$STAGE_GO/golang-values.mk"
           test -f "$STAGE_GO/golang1.27/Makefile"
-          test -f "$STAGE_TS/Makefile"
 
           echo "========== 替换 Go 工具链 =========="
 
           rm -rf feeds/packages/lang/golang
           mv "$STAGE_GO" feeds/packages/lang/golang
           STAGE_GO=""
-
-          echo "========== 替换 Tailscale =========="
-
-          rm -rf feeds/packages/net/tailscale
-          mv "$STAGE_TS" feeds/packages/net/tailscale
-          STAGE_TS=""
 
           echo "========== 验证更新结果 =========="
 
@@ -347,18 +260,7 @@ jobs:
           grep -E '^GO_VERSION_MAJOR_MINOR:=|^GO_VERSION_PATCH:=' \
             feeds/packages/lang/golang/golang1.27/Makefile
 
-          grep '^PKG_VERSION:=' \
-            feeds/packages/net/tailscale/Makefile
-
-          grep '^PKG_HASH:=' \
-            feeds/packages/net/tailscale/Makefile
-
-          grep '^go ' "$TMP_DIR/tailscale.go.mod"
-
-          grep 'github.com/go-json-experiment/json' \
-            "$TMP_DIR/tailscale.go.mod"
-
-          echo "========== Go 和 Tailscale 更新完成 =========="
+          echo "========== Go 工具链更新完成 =========="
 
       # 10. 删除不需要的 feeds 软件包
       - name: 删除不需要的 feeds 软件包
@@ -372,8 +274,7 @@ jobs:
           rm -rf feeds/luci/applications/luci-app-{appfilter,rtp2httpd,tailscale-community}
 
           echo "========== 删除不需要的网络软件包 =========="
-          # 注意：保留 feeds/packages/net/tailscale
-          rm -rf feeds/packages/net/{chinadns-ng,dns2socks,geoview,hysteria,ipt2socks,microsocks,naiveproxy,open-app-filter,rtp2httpd,shadow-tls,shadowsocks-rust,shadowsocksr-libev,simple-obfs,sing-box,tcping,v2ray-geodata,v2ray-plugin,xray-core,xray-plugin}
+          rm -rf feeds/packages/net/{chinadns-ng,dns2socks,geoview,hysteria,ipt2socks,microsocks,naiveproxy,open-app-filter,rtp2httpd,shadow-tls,shadowsocks-rust,shadowsocksr-libev,simple-obfs,sing-box,tailscale,tcping,v2ray-geodata,v2ray-plugin,xray-core,xray-plugin}
 
           echo "软件包源目录清理完成"
 
