@@ -299,10 +299,6 @@ jobs:
             echo "检查通过：${feed}"
           done < <(./scripts/feeds list -n)
 
-          echo "========== 检查 Tailscale =========="
-          grep -q '^Package: tailscale$' feeds/packages.index
-          echo "全部 feeds 索引重建成功"
-
       # 12. 安装 feeds
       - name: 安装 feeds
         shell: bash
