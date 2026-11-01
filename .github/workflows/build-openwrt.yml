@@ -160,7 +160,7 @@ jobs:
           cd openwrt
           ./scripts/feeds update -a
 
-      # 9. 更新 Go 工具链
+      # 9. 更新 Go 工具链和 Tailscale
       - name: 更新 Go 工具链
         shell: bash
         run: |
@@ -274,6 +274,7 @@ jobs:
           rm -rf feeds/luci/applications/luci-app-{appfilter,rtp2httpd,tailscale-community}
 
           echo "========== 删除不需要的网络软件包 =========="
+          # 注意：保留 feeds/packages/net/tailscale
           rm -rf feeds/packages/net/{chinadns-ng,dns2socks,geoview,hysteria,ipt2socks,microsocks,naiveproxy,open-app-filter,rtp2httpd,shadow-tls,shadowsocks-rust,shadowsocksr-libev,simple-obfs,sing-box,tailscale,tcping,v2ray-geodata,v2ray-plugin,xray-core,xray-plugin}
 
           echo "软件包源目录清理完成"
