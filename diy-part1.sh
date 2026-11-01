@@ -22,4 +22,4 @@ echo 'src-git lyin_diy https://github.com/lyin888/lyin_diy.git' >>feeds.conf.def
 echo 'src-git OpenAppFilter https://github.com/destan19/OpenAppFilter.git' >>feeds.conf.default
 echo 'src-git rtp2httpd https://github.com/stackia/rtp2httpd.git' >>feeds.conf.default
 echo 'src-git tailscale_community https://github.com/Tokisaki-Galaxy/luci-app-tailscale-community.git' >>feeds.conf.default
-echo 'src-git immortalwrt-tailscale https://github.com/lyin888/immortalwrt-tailscale.git' >>feeds.conf.default
+echo 'src-git immortalwrt_tailscale https://github.com/lyin888/immortalwrt-tailscale.git' >>feeds.conf.default
