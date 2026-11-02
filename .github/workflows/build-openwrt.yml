@@ -1,8 +1,9 @@
+
 #
 # https://github.com/P3TERX/Actions-OpenWrt
 #
 # File: .github/workflows/openwrt-bulder.yml
-# Description: Build OpenWrt using GitHub Actions
+# Description: Build ImmortalWrt using GitHub Actions
 # https://github.com/lwb1978/OpenWrt-Actions
 #
 # Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
@@ -10,6 +11,7 @@
 # This is free software, licensed under the MIT License.
 # See /LICENSE for more information.
 #
+
 name: X64软路由-UEFI
 
 on:
@@ -18,12 +20,13 @@ on:
     inputs:
       ssh:
         description: 'SSH connection to Actions'
+        type: boolean
         required: false
         default: false
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
-  REPO_BRANCH: v25.12.1
+  REPO_BRANCH: v25.12.2
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   DIY_P1_SH: diy-part1.sh
@@ -35,177 +38,527 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
 
     steps:
-    - name: 查看
-      uses: actions/checkout@main
-      
-    - name: 设置变量
-      run: |
-        sudo timedatectl set-timezone "$TZ"
-        echo "status=success" >> ${GITHUB_OUTPUT}
-      
-    - name: 检查服务器性能
-      run: |
-        echo -e "\e[1;32m警告⚠\e[0m"
-        echo -e "\e[1;32m分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！\e[0m"
-        echo -e "\e[1;32m已知CPU型号（降序）：9V74，7763，8370C，8272CL，8171M，E5-2673 \n\e[0m"
-        echo -e "--------------------------\e[1;32mCPU信息\e[0m--------------------------"
-        echo -e "\e[1;32mCPU物理数量：\e[0m$(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
-        echo -e "\e[1;32mCPU型号:\e[0m $(cat /proc/cpuinfo | grep "model name" | head -1 | cut -d: -f2) \n"
-        echo -e "\e[1;32mCPU核心:\e[0m $(nproc) 线程 \n"
-        echo -e "--------------------------\e[1;32m内存信息\e[0m--------------------------"
-        echo -e "\e[1;32m已安装内存详细信息\e[0m"
-        echo -e "$(sudo lshw -short -C memory | grep GiB) \n"
-        echo -e "--------------------------\e[1;32m硬盘信息\e[0m--------------------------"
-        echo -e "\e[1;32m硬盘数量：\e[0m$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
-        echo -e "--------------------------\e[1;32m操作系统\e[0m--------------------------"
-        echo -e "\e[1;32m系统版本:\e[0m"
-        [ -f /etc/os-release ] && cat /etc/os-release | grep PRETTY_NAME | cut -d '"' -f 2 || lsb_release -d
-        echo -e "\e[1;32m内核版本:\e[0m"
-        uname -smr
-        
-    - name: 释放磁盘空间
-      uses: sbwml/actions@free-disk
-      with:
-        build-mount-path: /mnt/workdir
-        
-    - name: 初始化环境
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      run: |
-        sudo -E apt-get -qq update
-        sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
-        sudo -E apt-get -qq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo mkdir -p /mnt/workdir
-        sudo chown $USER:$(id -gn) /mnt/workdir
+      # 1. 检出工作流仓库
+      - name: 检出仓库
+        uses: actions/checkout@v4
 
-    - name: 克隆源代码
-      working-directory: /mnt/workdir
-      run: |
-        pwd
-        df -hT $PWD
-        git clone $REPO_URL -b $REPO_BRANCH openwrt
-        ln -sf /mnt/workdir/openwrt $GITHUB_WORKSPACE/openwrt
-        sed -i '/src-git packages https:\/\/github.com\/immortalwrt\/packages.git\^e93a938c63124832d549c41da3157e2ec40fbe05/d' openwrt/feeds.conf.default
-        sed -i '/src-git luci https:\/\/github.com\/immortalwrt\/luci.git\^ed7692cb08a953e2e503287e0337c8b548cf4ba5/d' openwrt/feeds.conf.default
+      # 2. 设置时区
+      - name: 设置变量
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo timedatectl set-timezone "$TZ"
+          date
 
-    - name: 加载自定义 feeds
-      run: |
-        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
-        chmod +x $DIY_P1_SH
-        cd openwrt
-        ls -al
-        $GITHUB_WORKSPACE/$DIY_P1_SH
+      # 3. 检查服务器性能
+      - name: 检查服务器性能
+        shell: bash
+        run: |
+          echo -e "\e[1;32m警告⚠\e[0m"
+          echo -e "\e[1;32m分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！\e[0m"
+          echo -e "\e[1;32m已知CPU型号（降序）：9V74，8573C，7763，8370C，8272CL，8171M，E5-2673 \n\e[0m"
 
-    - name: 更新 feeds
-      run: cd openwrt && ./scripts/feeds update -a
-      
-    - name: 删除插件与缓存
-      run: |
-        cd openwrt
-        rm -rf feeds/luci/applications/luci-app-appfilter
-        rm -rf feeds/luci.tmp/info/.packageinfo-applications_luci-app-appfilter
-        sed -i '/^Source-Makefile:.*luci-app-appfilter/,/^@@/d' feeds/luci.tmp/.packageinfo
-        sed -i '/^Package: luci-i18n-appfilter-zh-cn/,/^@@/d' feeds/luci.tmp/.packageinfo
-        sed -i '/^$/N;/^\n$/D' feeds/luci.tmp/.packageinfo
-        rm -rf feeds/packages/net/open-app-filter
-        rm -rf feeds/packages.tmp/info/.packageinfo-net_open-app-filter
-        sed -i '/^Source-Makefile: feeds\/packages\/net\/open-app-filter\/Makefile/,/^@@/d' feeds/packages.tmp/.packageinfo
-        sed -i '/^Package: appfilter/,/^@@/d' feeds/packages.tmp/.packageinfo
-        sed -i '/^$/N;/^\n$/D' feeds/packages.tmp/.packageinfo
-      
-    - name: SSH 连接到 Actions
-      uses: P3TERX/ssh2actions@v1.0.0
-      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
-      env:
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          echo -e "--------------------------\e[1;32mCPU信息\e[0m--------------------------"
+          CPU_SOCKETS="$(awk -F: '/^physical id[[:space:]]*:/ {
+            gsub(/^[ \t]+/, "", $2)
+            print $2
+          }' /proc/cpuinfo | sort -u | wc -l)"
+          echo -e "\e[1;32mCPU物理插槽数量：\e[0m$CPU_SOCKETS"
+          echo -e "\e[1;32mCPU型号:\e[0m $(grep 'model name' /proc/cpuinfo | head -1 | cut -d: -f2)"
+          echo -e "\e[1;32m可用逻辑线程:\e[0m $(nproc) \n"
 
-    - name: 安装 feeds
-      run: cd openwrt && ./scripts/feeds install -a
+          echo -e "--------------------------\e[1;32m内存信息\e[0m--------------------------"
+          if command -v lshw >/dev/null 2>&1; then
+            sudo lshw -short -C memory | grep GiB || true
+          else
+            free -h
+          fi
 
-    - name: 加载自定义配置
-      run: |
-        [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        chmod +x $DIY_P2_SH
-        cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P2_SH
+          echo -e "\n--------------------------\e[1;32m硬盘信息\e[0m--------------------------"
+          echo -e "\e[1;32m硬盘数量：\e[0m$(find /dev -maxdepth 1 -type b -name 'sd[a-z]' | wc -l)"
+          df -hT
 
-    - name: 下载 package 
-      id: package
-      run: |
-        cd openwrt
-        make defconfig
-        make download -j8
-        find dl -size -1024c -exec ls -l {} \;
-        find dl -size -1024c -exec rm -f {} \;
+          echo -e "--------------------------\e[1;32m操作系统\e[0m--------------------------"
+          if [ -f /etc/os-release ]; then
+            grep PRETTY_NAME /etc/os-release
+          else
+            lsb_release -d
+          fi
 
-    - name: 编译固件
-      id: compile
-      run: |
-        cd openwrt
-        echo -e "$(nproc) thread compile"
-        make -j$(nproc) || make -j1 || make -j1 V=s
-        echo "status=success" >> $GITHUB_OUTPUT
-        grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+          echo -e "\e[1;32m内核版本:\e[0m"
+          uname -smr
 
-    - name: 检查空间使用情况
-      if: (!cancelled())
-      run: df -hT
+      # 4. 释放磁盘空间
+      - name: 释放磁盘空间
+        uses: sbwml/actions@free-disk
+        with:
+          build-mount-path: /mnt/workdir
 
-    - name: 上传 bin 目录
-      uses: actions/upload-artifact@main
-      if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
-      with:
-        name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        path: openwrt/bin
+      # 5. 初始化编译环境
+      - name: 初始化环境
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
 
-    - name: 整理文件
-      id: organize
-      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
-      run: |
-        cd openwrt/bin/targets/*/*
-        rm -rf packages
-        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-        echo "status=success" >> $GITHUB_OUTPUT
+          sudo -E apt-get -qq update
+          sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
 
-    - name: 上传固件目录
-      uses: actions/upload-artifact@main
-      if: steps.organize.outputs.status == 'success' && !cancelled()
-      with:
-        name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        path: ${{ env.FIRMWARE }}
+          sudo mkdir -p /mnt/workdir
+          sudo chown "$USER:$(id -gn)" /mnt/workdir
 
-    - name: 生成发布标签
-      id: tag
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      run: |
-        echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
-        touch release.txt
-        [ ${UPLOAD_GOFILE} = true && ${{ steps.gofile.outputs.url }} ] && echo "🔗 [GoFile](${{ steps.gofile.outputs.url }})" >> release.txt
-        echo "status=success" >> $GITHUB_OUTPUT
+      # 6. 克隆 ImmortalWrt 源码
+      - name: 克隆源代码
+        working-directory: /mnt/workdir
+        shell: bash
+        run: |
+          set -Eeuo pipefail
 
-    - name: 上传固件并发布
-      uses: softprops/action-gh-release@master
-      if: steps.tag.outputs.status == 'success' && !cancelled()
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        body_path: release.txt
-        files: ${{ env.FIRMWARE }}/*
+          pwd
+          df -hT "$PWD"
 
-    - name: 移除旧版本
-      uses: dev-drprasad/delete-older-releases@v0.3.4
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      with:
-        keep_latest: 10
-        delete_tags: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git clone \
+            --depth 1 \
+            --single-branch \
+            --branch "$REPO_BRANCH" \
+            "$REPO_URL" \
+            openwrt
+
+          ln -sfn /mnt/workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
+
+      # 7. 加载自定义 feeds
+      - name: 加载自定义 feeds
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          if [ -f "$FEEDS_CONF" ]; then
+            mv "$FEEDS_CONF" openwrt/feeds.conf.default
+          fi
+
+          test -f "$DIY_P1_SH"
+          chmod +x "$DIY_P1_SH"
+
+          cd openwrt
+          ls -al
+
+          "$GITHUB_WORKSPACE/$DIY_P1_SH"
+
+      # 8. 更新 feeds
+      - name: 更新 feeds
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd openwrt
+          ./scripts/feeds update -a
+
+      # 9. 更新 Go 工具链和 Tailscale
+      - name: 更新 Go 工具链和 Tailscale
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          cd openwrt
+
+          echo "========== 获取 ImmortalWrt 官方 packages =========="
+
+          TMP_DIR="$(mktemp -d)"
+          STAGE_GO=""
+          STAGE_TS=""
+
+          cleanup() {
+            rm -rf -- "$TMP_DIR"
+
+            if [ -n "$STAGE_GO" ]; then
+              rm -rf -- "$STAGE_GO"
+            fi
+
+            if [ -n "$STAGE_TS" ]; then
+              rm -rf -- "$STAGE_TS"
+            fi
+          }
+
+          trap cleanup EXIT
+
+          git clone \
+            --depth 1 \
+            --branch master \
+            --single-branch \
+            https://github.com/immortalwrt/packages.git \
+            "$TMP_DIR/packages"
+
+          SRC="$TMP_DIR/packages"
+          GO_SRC="$SRC/lang/golang"
+          TS_SRC="$SRC/net/tailscale"
+
+          echo "========== 官方仓库提交记录 =========="
+
+          git -C "$SRC" log -1 \
+            --format='Commit: %H%nDate: %cd%nSubject: %s' \
+            --date=iso
+
+          echo "========== 检查 Go 工具链 =========="
+
+          test -f "$GO_SRC/golang-values.mk"
+          test -f "$GO_SRC/golang/Makefile"
+          test -f "$GO_SRC/golang-bootstrap/Makefile"
+          test -f "$GO_SRC/golang1.27/Makefile"
+
+          GO_DEFAULT_VERSION="$(
+            sed -n 's/^GO_DEFAULT_VERSION:=//p' \
+              "$GO_SRC/golang-values.mk" | head -n 1
+          )"
+
+          GO_MAJOR_MINOR="$(
+            sed -n 's/^GO_VERSION_MAJOR_MINOR:=//p' \
+              "$GO_SRC/golang1.27/Makefile" | head -n 1
+          )"
+
+          GO_PATCH="$(
+            sed -n 's/^GO_VERSION_PATCH:=//p' \
+              "$GO_SRC/golang1.27/Makefile" | head -n 1
+          )"
+
+          GO_ACTUAL_VERSION="${GO_MAJOR_MINOR}.${GO_PATCH}"
+
+          echo "默认 Go 版本：$GO_DEFAULT_VERSION"
+          echo "正式 Go 版本：$GO_ACTUAL_VERSION"
+
+          if [ "$GO_DEFAULT_VERSION" != "1.27" ] ||
+             [ "$GO_MAJOR_MINOR" != "1.27" ] ||
+             [ "$GO_PATCH" != "3" ]; then
+            echo "错误：官方 Go 工具链不是预期的 1.27.3"
+            exit 1
+          fi
+
+          echo "========== 检查 Tailscale =========="
+
+          test -f "$TS_SRC/Makefile"
+
+          TS_VERSION="$(
+            sed -n 's/^PKG_VERSION:=//p' \
+              "$TS_SRC/Makefile" | head -n 1
+          )"
+
+          TS_HASH="$(
+            sed -n 's/^PKG_HASH:=//p' \
+              "$TS_SRC/Makefile" | head -n 1
+          )"
+
+          # go.mod 属于 Tailscale 上游源码，不在 ImmortalWrt 的软件包 Makefile 目录中。
+          # 按 PKG_VERSION 获取与打包版本一致的上游 go.mod。
+          curl -fsSL \
+            "https://raw.githubusercontent.com/tailscale/tailscale/v${TS_VERSION}/go.mod" \
+            -o "$TMP_DIR/tailscale.go.mod"
+
+          test -s "$TMP_DIR/tailscale.go.mod"
+
+          TS_GO_REQUIRED="$(
+            awk '$1 == "go" {print $2; exit}' \
+              "$TMP_DIR/tailscale.go.mod"
+          )"
+
+          TS_JSON_VERSION="$(
+            awk '$1 == "github.com/go-json-experiment/json" {print $2; exit}' \
+              "$TMP_DIR/tailscale.go.mod"
+          )"
+
+          echo "Tailscale 版本：$TS_VERSION"
+          echo "Tailscale 要求 Go：$TS_GO_REQUIRED"
+          echo "Tailscale JSON 依赖：$TS_JSON_VERSION"
+
+          if [ "$TS_VERSION" != "1.104.1" ]; then
+            echo "错误：Tailscale 版本不是预期的 1.104.1"
+            exit 1
+          fi
+
+          if [[ ! "$TS_HASH" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "错误：Tailscale PKG_HASH 格式无效"
+            exit 1
+          fi
+
+          if [ -z "$TS_GO_REQUIRED" ] || [ -z "$TS_JSON_VERSION" ]; then
+            echo "错误：无法读取 Tailscale go.mod 版本信息"
+            exit 1
+          fi
+
+          # 确认 Go 1.27.3 满足 Tailscale go.mod 的最低版本要求
+          GO_MIN_VERSION="$(
+            printf '%s\n' "$GO_ACTUAL_VERSION" "$TS_GO_REQUIRED" \
+              | sort -V | head -n 1
+          )"
+
+          if [ "$GO_MIN_VERSION" != "$TS_GO_REQUIRED" ]; then
+            echo "错误：Go 工具链低于 Tailscale 要求的版本"
+            exit 1
+          fi
+
+          # 防止重新引入本次报错中的旧 JSON 依赖
+          if [ "$TS_JSON_VERSION" = "v0.0.0-20250813024750-ebf49471dced" ]; then
+            echo "错误：Tailscale 仍使用导致编译失败的旧 JSON 依赖"
+            exit 1
+          fi
+
+          echo "========== 准备替换目录 =========="
+
+          mkdir -p feeds/packages/lang feeds/packages/net
+
+          STAGE_GO="$(
+            mktemp -d feeds/packages/lang/.golang-stage.XXXXXX
+          )"
+
+          STAGE_TS="$(
+            mktemp -d feeds/packages/net/.tailscale-stage.XXXXXX
+          )"
+
+          cp -a "$GO_SRC/." "$STAGE_GO/"
+          cp -a "$TS_SRC/." "$STAGE_TS/"
+
+          test -f "$STAGE_GO/golang-values.mk"
+          test -f "$STAGE_GO/golang1.27/Makefile"
+          test -f "$STAGE_TS/Makefile"
+
+          echo "========== 替换 Go 工具链 =========="
+
+          rm -rf feeds/packages/lang/golang
+          mv "$STAGE_GO" feeds/packages/lang/golang
+          STAGE_GO=""
+
+          echo "========== 替换 Tailscale =========="
+
+          rm -rf feeds/packages/net/tailscale
+          mv "$STAGE_TS" feeds/packages/net/tailscale
+          STAGE_TS=""
+
+          echo "========== 验证更新结果 =========="
+
+          grep '^GO_DEFAULT_VERSION:=' \
+            feeds/packages/lang/golang/golang-values.mk
+
+          grep -E '^GO_VERSION_MAJOR_MINOR:=|^GO_VERSION_PATCH:=' \
+            feeds/packages/lang/golang/golang1.27/Makefile
+
+          grep '^PKG_VERSION:=' \
+            feeds/packages/net/tailscale/Makefile
+
+          grep '^PKG_HASH:=' \
+            feeds/packages/net/tailscale/Makefile
+
+          grep '^go ' "$TMP_DIR/tailscale.go.mod"
+
+          grep 'github.com/go-json-experiment/json' \
+            "$TMP_DIR/tailscale.go.mod"
+
+          echo "========== Go 和 Tailscale 更新完成 =========="
+
+      # 10. 删除不需要的 feeds 软件包
+      - name: 删除不需要的 feeds 软件包
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          cd openwrt
+
+          echo "========== 删除 LuCI 软件包 =========="
+          rm -rf feeds/luci/applications/luci-app-{appfilter,rtp2httpd,tailscale-community}
+
+          echo "========== 删除不需要的网络软件包 =========="
+          # 注意：保留 feeds/packages/net/tailscale
+          rm -rf feeds/packages/net/{chinadns-ng,dns2socks,geoview,hysteria,ipt2socks,microsocks,naiveproxy,open-app-filter,rtp2httpd,shadow-tls,shadowsocks-rust,shadowsocksr-libev,simple-obfs,sing-box,tcping,v2ray-geodata,v2ray-plugin,xray-core,xray-plugin}
+
+          echo "软件包源目录清理完成"
+
+      # 11. 重建所有 feeds 索引
+      - name: 重建所有 feeds 索引
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          cd openwrt
+
+          echo "========== 重新扫描全部 feeds =========="
+          ./scripts/feeds update -i
+
+          echo "========== 检查 feeds 索引 =========="
+          while IFS= read -r feed; do
+            [ -n "$feed" ] || continue
+            if [ ! -s "feeds/${feed}.index" ]; then
+              echo "错误：${feed} feed 索引不存在或为空"
+              exit 1
+            fi
+            echo "检查通过：${feed}"
+          done < <(./scripts/feeds list -n)
+
+          echo "========== 检查 Tailscale =========="
+          grep -q '^Package: tailscale$' feeds/packages.index
+          echo "全部 feeds 索引重建成功"
+
+      # 12. 安装 feeds
+      - name: 安装 feeds
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd openwrt
+          ./scripts/feeds install -a
+
+      # 13. SSH 连接到 Actions
+      - name: SSH 连接到 Actions
+        uses: P3TERX/ssh2actions@v1.0.0
+        if: |
+          (github.event_name == 'workflow_dispatch' && inputs.ssh) ||
+          (github.event_name == 'repository_dispatch' && contains(github.event.action || '', 'ssh'))
+        env:
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+
+      # 14. 加载自定义配置
+      - name: 加载自定义配置
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          if [ -e files ]; then
+            mv files openwrt/files
+          fi
+
+          if [ -e "$CONFIG_FILE" ]; then
+            mv "$CONFIG_FILE" openwrt/.config
+          fi
+
+          test -f "$DIY_P2_SH"
+          chmod +x "$DIY_P2_SH"
+
+          cd openwrt
+          "$GITHUB_WORKSPACE/$DIY_P2_SH"
+
+      # 15. 下载 package
+      - name: 下载 package
+        id: package
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          cd openwrt
+
+          make defconfig
+          make download -j8
+
+          echo "========== 检查异常小文件 =========="
+          find dl -type f -size -1024c -print -delete
+
+      # 16. 编译固件
+      - name: 编译固件
+        id: compile
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          cd openwrt
+
+          echo "========== 开始编译 =========="
+          echo "$(nproc) thread compile"
+
+          if make -j"$(nproc)"; then
+            echo "多线程编译成功"
+          else
+            echo "多线程编译失败，尝试单线程编译"
+
+            if make -j1; then
+              echo "单线程编译成功"
+            else
+              echo "单线程编译失败，启用详细日志"
+              make -j1 V=s
+            fi
+          fi
+
+          if grep -q '^CONFIG_TARGET.*DEVICE.*=y' .config; then
+            grep '^CONFIG_TARGET.*DEVICE.*=y' .config \
+              | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
+          else
+            echo "错误：.config 中没有找到设备配置"
+            exit 1
+          fi
+
+          if [ -s DEVICE_NAME ]; then
+            echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> "$GITHUB_ENV"
+          else
+            echo "错误：DEVICE_NAME 为空"
+            exit 1
+          fi
+
+          echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> "$GITHUB_ENV"
+
+          # 编译和设备配置检查全部成功后，最后写入成功标记
+          echo "status=success" >> "$GITHUB_OUTPUT"
+
+      # 17. 检查空间使用情况
+      - name: 检查空间使用情况
+        if: always()
+        shell: bash
+        run: |
+          df -hT
+
+      # 18. 上传 bin 目录
+      - name: 上传 bin 目录
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
+        with:
+          name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: openwrt/bin
+
+      # 19. 整理文件
+      - name: 整理文件
+        id: organize
+        if: success() && steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          cd openwrt/bin/targets/*/*
+
+          rm -rf packages
+
+          echo "FIRMWARE=$PWD" >> "$GITHUB_ENV"
+          echo "status=success" >> "$GITHUB_OUTPUT"
+
+      # 20. 上传固件目录
+      - name: 上传固件目录
+        uses: actions/upload-artifact@v4
+        if: success() && steps.organize.outputs.status == 'success'
+        with:
+          name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}
+
+      # 21. 生成发布标签
+      - name: 生成发布标签
+        id: tag
+        if: success() && env.UPLOAD_RELEASE == 'true' && steps.organize.outputs.status == 'success'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          echo "release_tag=$(date +"%Y.%m.%d-%H%M%S")" >> "$GITHUB_OUTPUT"
+
+          touch release.txt
+
+          echo "status=success" >> "$GITHUB_OUTPUT"
+
+      # 22. 上传固件并发布
+      - name: 上传固件并发布
+        uses: softprops/action-gh-release@v2
+        if: success() && steps.tag.outputs.status == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          body_path: release.txt
+          files: ${{ env.FIRMWARE }}/*
